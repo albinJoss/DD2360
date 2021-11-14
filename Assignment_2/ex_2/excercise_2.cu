@@ -19,21 +19,6 @@ void memsetF(float *x, float *y, float *d_x, float *d_y)           //Sets the ar
     cudaMemcpy(d_y, y, ARRAY_SIZE * sizeof(float), cudaMemcpyHostToDevice);
 }
 
-int check_correctness(float *y, float *d_y)       //check if the arrays match each other
-{
-    
-    float margin = 0.01f;
-    for(int j = 0; j < ARRAY_SIZE; ++j)
-    {
-        
-        if(abs(y[j] != d_y[j]) > margin)
-        {
-            return 0;
-        }
-    }
-    return 1;
-} 
-
 /*double cpuSecond()              //Timing from within the program
 {
     struct timeval tp;
@@ -71,6 +56,7 @@ int main()                          //Driver code
     cudaMalloc(&d_y, ARRAY_SIZE * sizeof(float));
     memsetF(x, y, d_x, d_y);
     const float a = 4.0f;
+    float margin = 0.01f;
     double iStart, iElaps;
     int correctness = 1;
     clock_t starting_time;
@@ -92,7 +78,15 @@ int main()                          //Driver code
         
         cudaMemcpy(cuda_y, d_y, ARRAY_SIZE * sizeof(float), cudaMemcpyDeviceToHost);
         
-        correctness = check_correctness(y, cuda_y);
+        
+        for(int j = 0; j < ARRAY_SIZE; ++j)
+        {
+        
+            if(abs(y[j] != d_y[j]) > margin)
+            {
+                correctness = 0;
+            }
+        }
         
         
         if(correctness == 1)
