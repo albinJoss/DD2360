@@ -117,6 +117,7 @@ int main(int argc, char *argv[])
     for(iteration = 0; iteration < num_iterations; ++iteration)
     {
         timestep_for_gpu<<<grid_size, block_size>>>(d_particles, num_particles, iteration);
+        cudaDeviceSynchronize();
     }
     printf("Done with the simulation on the GPU, using %d iterations and %d particles. It took %lf seconds to do!\n", num_iterations, num_particles, (double) (clock() - starting_time) / CLOCKS_PER_SEC);
 
