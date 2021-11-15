@@ -36,7 +36,7 @@ void timestep_for_cpu(Particle *particles, int num_particles, int iteration)
     const float dt = 1.0f;
     for(int i = 0; i < num_particles; ++i)
     {
-       particles[i].Velocity.x = (iteration % 3 == 0) ? (particles[i].Velocity.x - 0.01) : (particles[i].Velocity.x + 0.01);                                    //Update velocity for the particle
+        particles[i].Velocity.x = (iteration % 3 == 0) ? (particles[i].Velocity.x - 0.01) : (particles[i].Velocity.x + 0.01);                                    //Update velocity for the particle
         particles[i].Velocity.y = (iteration % 4 == 0) ? (particles[i].Velocity.y - 0.01) : (particles[i].Velocity.y + 0.01);
         particles[i].Velocity.z = (iteration % 5 == 0) ? (particles[i].Velocity.z - 0.01) : (particles[i].Velocity.z + 0.01);
 
@@ -48,12 +48,12 @@ void timestep_for_cpu(Particle *particles, int num_particles, int iteration)
 
 int main(int argc, char *argv[])
 {
-    printf("Enter\n");
+  
     int num_particles, num_iterations, block_size, iteration, grid_size;
     int correctness = 1;
     Particle *particles, *d_particles, *cuda_particles;
     clock_t starting_time;
-    printf("Set\n");
+    
 
     switch(argc)            //Change the number of iterations, particles or the block size depending on the arguments sent through the command line
     { 
@@ -138,10 +138,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-        /*for(int j = 0; j < num_particles; ++j)
-        {
-            printf("%d:     x: %lf y: %lf z: %lf        || d_x: %lf d_y: %lf d_z: %lf\n", j, particles[j].Position.x, particles[j].Position.y, particles[j].Position.z, cuda_particles[j].Position.x, cuda_particles[j].Position.y, cuda_particles[j].Position.z);
-        }*/
+        
         printf("Comparing the output for each implementation... Incorrect!\n");
     }
 

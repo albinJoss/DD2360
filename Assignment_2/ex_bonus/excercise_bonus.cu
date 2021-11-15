@@ -130,6 +130,7 @@ int main(int argc, char *argv[])
         pi_single = ((float)sum /((float) iterations_per_thread *  TPB * num_blocks)) * 4.0;
         printf("Done with the simulation on the for single precision, using %ld iterations and a block size of %d. It took %lf seconds on the GPU and a total of %lf seconds to do and pi was estimated to %.15f\n", (long int)num_iterations, num_blocks, (double) (end_time - starting_time) / CLOCKS_PER_SEC, (double) (clock() - starting_time) / CLOCKS_PER_SEC, pi_single);
     }
+    
     cudaFree(dev_random);
     cudaFree(d_count);
     free(count);
