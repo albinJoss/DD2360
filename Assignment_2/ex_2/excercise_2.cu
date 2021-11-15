@@ -2,21 +2,18 @@
 //#include <sys/time.h>
 #include <time.h>
 #include <limits.h>
-#define FINAL_SIZE 50000
-#define CHANGE 4000
+
 #define TPB 256
 
-#define ARRAY_SIZE  10000
-
-void memsetF(float *x, float *y, float *d_x, float *d_y)           //Sets the arrays using memcpy to speed up the execution
+void memsetF(float *x, float *y, float *d_x, float *d_y, int array_size)           //Sets the arrays using memcpy to speed up the execution
 {
-    for(int i = 0; i < ARRAY_SIZE; ++i)
+    for(int i = 0; i < array_size; ++i)
     {
         x[i] = 2.0f;
         y[i] = 8.0f;
     }
-    cudaMemcpy(d_x, x, ARRAY_SIZE * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_y, y, ARRAY_SIZE * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_x, x, array_size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_y, y, array_size * sizeof(float), cudaMemcpyHostToDevice);
 }
 
 /*double cpuSecond()              //Timing from within the program
@@ -27,34 +24,35 @@ void memsetF(float *x, float *y, float *d_x, float *d_y)           //Sets the ar
 }*/
 
 __global__ 
-void saxpy_for_gpu(float *x, float *y, const float a)     //Executes SAXPY on the GPU parallel
+void saxpy_for_gpu(float *x, float *y, const float a, int array_size)     //Executes SAXPY on the GPU parallel
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if(i < ARRAY_SIZE)
+    if(i < array_size)
     {
         y[i] += a * x[i];
     }
 }
 
 
-void saxpy_for_cpu(float *x, float *y, const float a)       //Executes saxpy on the CPU sequentially
+void saxpy_for_cpu(float *x, float *y, const float a, int array_size)       //Executes saxpy on the CPU sequentially
 {
-    for(int i = 0; i < ARRAY_SIZE; ++i)
+    for(int i = 0; i < array_size; ++i)
     {
         y[i] += a * x[i];
     }
 }
 
-int main()                          //Driver code
+int main(int argc, char *argv[])                          //Driver code
 {
-    int num_blocks = (ARRAY_SIZE + TPB - 1) / TPB;
+    int array_size = argc == 1 ? 10000 : atoi(argv[1]);
+    int num_blocks = (array_size + TPB - 1) / TPB;
     float *x, *y, *d_x, *d_y, *cuda_y;
-    x = (float*)malloc(ARRAY_SIZE * sizeof(float));
-    y = (float*)malloc(ARRAY_SIZE * sizeof(float));
-    cuda_y = (float*)malloc(ARRAY_SIZE * sizeof(float));
-    cudaMalloc(&d_x, ARRAY_SIZE * sizeof(float));
-    cudaMalloc(&d_y, ARRAY_SIZE * sizeof(float));
-    memsetF(x, y, d_x, d_y);
+    x = (float*)malloc(array_size * sizeof(float));
+    y = (float*)malloc(array_size * sizeof(float));
+    cuda_y = (float*)malloc(array_size * sizeof(float));
+    cudaMalloc(&d_x, array_size * sizeof(float));
+    cudaMalloc(&d_y, array_size * sizeof(float));
+    memsetF(x, y, d_x, d_y, array_size);
     const float a = 4.0f;
     float margin = 0.01f;
     double iStart, iElaps;
@@ -63,40 +61,40 @@ int main()                          //Driver code
   
       
         
-        //iStart = cpuSecond();
-        starting_time = clock();
-        saxpy_for_cpu(x, y, a);
-        //iElaps = cpuSecond() - iStart;
-        printf("Computing SAXPY with %d elements on the CPU. Done in %lf seconds!\n", ARRAY_SIZE, (double) (clock() - starting_time) / CLOCKS_PER_SEC);
+    //iStart = cpuSecond();
+    starting_time = clock();
+    saxpy_for_cpu(x, y, a, array_size);
+    //iElaps = cpuSecond() - iStart;
+    printf("Computing SAXPY with %d elements on the CPU. Done in %lf seconds!\n", array_size, (double) (clock() - starting_time) / CLOCKS_PER_SEC);
 
-        //iStart = cpuSecond();
-        starting_time = clock();
-        saxpy_for_gpu<<<num_blocks, TPB>>>(d_x, d_y, a);
-        cudaDeviceSynchronize();
-        //iElaps = cpuSecond() - iStart;
-        printf("Computing SAXPY with %d elements on the GPU. Done in %lf seconds!\n", ARRAY_SIZE, (double) (clock() - starting_time) / CLOCKS_PER_SEC);
+    //iStart = cpuSecond();
+    starting_time = clock();
+    saxpy_for_gpu<<<num_blocks, TPB>>>(d_x, d_y, a, array_size);
+    cudaDeviceSynchronize();
+    //iElaps = cpuSecond() - iStart;
+    printf("Computing SAXPY with %d elements on the GPU. Done in %lf seconds!\n", array_size, (double) (clock() - starting_time) / CLOCKS_PER_SEC);
         
-        cudaMemcpy(cuda_y, d_y, ARRAY_SIZE * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(cuda_y, d_y, array_size * sizeof(float), cudaMemcpyDeviceToHost);
         
         
-        for(int j = 0; j < ARRAY_SIZE; ++j)
+    for(int j = 0; j < array_size; ++j)
+    {
+        
+        if(abs(y[j] != cuda_y[j]) > margin)
         {
-        
-            if(abs(y[j] != d_y[j]) > margin)
-            {
-                correctness = 0;
-            }
+            correctness = 0;
         }
+    }
         
         
-        if(correctness == 1)
-        {
-            printf("Comparing the output for each implementation... Correct!\n");
-        }
-        else
-        {
-            printf("Comparing the output for each implementation... Incorrect!\n");
-        }
+    if(correctness == 1)
+    {
+        printf("Comparing the output for each implementation... Correct!\n");
+    }
+    else
+    {
+        printf("Comparing the output for each implementation... Incorrect!\n");
+    }
 
     
   
