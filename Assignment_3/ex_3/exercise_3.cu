@@ -126,7 +126,7 @@ void gpu_execution(ParticleCollection *particleCollection, Info *info, cudaStrea
 		cudaStreamDestroy(streams[k]);
 	}
 	// printf("Destroyed\n");
-	    //printf("Done with the simulation on the GPU, using %d iterations and %d particles. It took %lf seconds to do!\n", info->num_iterations, info->num_particles, (double) (clock() - starting_time) / CLOCKS_PER_SEC);
+	printf("Done with the simulation on the GPU, using %d iterations and %d particles. It took %lf seconds to do!\n", info->num_iterations, info->num_particles, (double) (clock() - starting_time) / CLOCKS_PER_SEC);
     return;
 }
 
