@@ -13,30 +13,24 @@ typedef struct Saxpy
     float *d_x;
     float *d_y;
     float a;
-    size_t *array_size;
+    size_t array_size;
 } Saxpy;
 
-// void memsetF(Saxpy *args)
-// {
-//     args->x = (float *)malloc(args->array_size * sizeof(float));
+void memsetF(Saxpy *args)
+{
+    args->x = (float *)malloc(args->array_size * sizeof(float));
+    args->y = (float *)malloc(args->array_size * sizeof(float));
+	args->d_x = (float*)malloc(args->array_size * sizeof(float));
+	args->d_y = (float*)malloc(args->array_size * sizeof(float));
 
-//     args->y = (float *)malloc(args->array_size * sizeof(float));
+    args->a = 4.0f;
 
-//     args->d_x = (float *)malloc(args->array_size * sizeof(float));
-
-//     args->d_y = (float *)malloc(args->array_size * sizeof(float));
-
-//     args->a = 4.0f;
-
-//     for (int i = 0; i < args->array_size; ++i)
-//     {
-//         args->x[i] = 2.0f;
-//         args->y[i] = 8.0f;
-
-//         args->d_x[i] = 2.0f;
-//         args->d_y[i] = 8.0f;
-//     }
-// }
+    for (int i = 0; i < args->array_size; ++i)
+    {
+        args->x[i] = 2.0f;
+        args->y[i] = 8.0f;
+    }
+}
 
 void sequentially(Saxpy *args)
 {
@@ -46,31 +40,28 @@ void sequentially(Saxpy *args)
     }
 }
 
-void acc(size_t array_size)
+void acc(size_t array_size, float *d_x, float *d_y)
 {
-    float* g_x = 0;
-	float* g_y = 0;
-	float a = 1.6f;
+	float a = 4.0f;
 
-	g_x = (float*)malloc(array_size * sizeof(float));
-	g_y = (float*)malloc(array_size * sizeof(float));
+	d_x = (float*)malloc(array_size * sizeof(float));
+	d_y = (float*)malloc(array_size * sizeof(float));
 
 	for (size_t i = 0; i < array_size; i++) {
-		g_x[i] = (float)i;
-		g_y[i] = 1.0f;
+		d_x[i] = 2.0f;
+		d_y[i] = 8.0f;
 	}
 
-	// printf("Computing SAXPY with OepnACC...\n");
-	
-
-	#pragma acc parallel loop copyin(g_x[0:array_size]) copyout(g_y[0:array_size])
+	#pragma acc parallel
 	for (size_t i = 0; i < array_size; i++)
 	{
-		g_y[i] += a * g_x[i];
+		d_y[i] += a * d_x[i];
 	}
 
-	free(g_x);
-	free(g_y);
+
+
+	free(d_x);
+	free(d_y);
 }
 
 void correctness(Saxpy *args)
@@ -88,7 +79,7 @@ void correctness(Saxpy *args)
 
     if (correctness == 1)
     {
-        // printf("Comparing the output for each implementation... Correct!\n");
+        printf("Comparing the output for each implementation... Correct!\n");
     }
     else
     {
@@ -104,37 +95,35 @@ int main(int argc, char *argv[])
     float* x = 0;
 	float* y = 0;
 	float a = 1.5f;
-
-	// x = (float*)malloc(arr * sizeof(float));
-	// y = (float*)malloc(arr * sizeof(float));
-
-	// for (size_t i = 0; i <arr; i++) {
-	// 	x[i] = (float)i;
-	// 	y[i] = 1.0f;
-	// }
-
-	// printf("Computing SAXPY sequentially...\n");
+	printf("Set first\n");
+	float* d_x = 0;
+	float* d_y = 0;
+	// printf("Set everything!\n");
 	start = clock();
 
-	// for (size_t i = 0; i < arr; i++)
-	// {
-	// 	y[i] += a * x[i];
-	// }
+	acc(arr, d_x, d_y);
 
-	 double end = (double)(clock() - start) / CLOCKS_PER_SEC;;
-	// printf("Done! Time elapsed: (ms) = %d\t (s): %f\n\n", (int)end, end / 1e6);
+	double end = (double)(clock() - start) / CLOCKS_PER_SEC;;
+	printf("Computing SAXPY with %d elements using OpenACC. Done in %lf seconds!\n", arr, end);
 
-	// free(x);
-	// free(y);
-
-	
+	Saxpy *args = malloc(sizeof(Saxpy *));
+	args->array_size = arr;
+	memsetF(args);
+	printf("Time for the OpenACC\n");
 	start = clock();
 
-    acc(arr);
-
+    
+	sequentially(args);
 	end = (double)(clock() - start) / CLOCKS_PER_SEC;;
-	// printf("Done! Time elapsed: (ms) = %d\t (s): %f\n\n", (int)end, end / 1e6);
-    printf("%lf\n", end);
-
+	printf("Computing SAXPY with %d elements on the CPU. Done in %lf seconds!\n", args->array_size, end);
+	
+	memcpy(args->d_y, d_y, sizeof(float *) * args->array_size);
+   	correctness(args);
+	
+	free(args->x);
+	free(args->y);
+	free(args->d_x);
+	free(args->d_y);
+	free(args);
     return 0;
 }
