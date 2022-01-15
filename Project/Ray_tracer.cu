@@ -7,26 +7,28 @@
 #include <stdint.h>
 #include "timer.h"
 
-static void HandleError( cudaError_t err,
-                         const char *file,
-                         int line ) {
-    if (err != cudaSuccess) {
-        printf( "%s in %s at line %d\n", cudaGetErrorString( err ),
-                file, line );
-        exit( EXIT_FAILURE );
+static void HandleError(cudaError_t err,
+                        const char *file,
+                        int line)
+{
+    if (err != cudaSuccess)
+    {
+        printf("%s in %s at line %d\n", cudaGetErrorString(err),
+               file, line);
+        exit(EXIT_FAILURE);
     }
 }
-#define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
+#define HANDLE_ERROR(err) (HandleError(err, __FILE__, __LINE__))
 
-const int width = 7680;
-const int height = 7680;
+const int width = 2000;
+const int height = 2000;
 const double factor = 0.703952253f * 2.38924456f;
 
 __device__ const int width_d = width;
 __device__ const int height_d = height;
 __device__ const double factor_d = 0.703952253f * 2.38924456f;
-__device__ const double pixel_factor_x = 2.0 / (double) width_d;
-__device__ const double pixel_factor_y = 2.0 / (double) height_d; 
+__device__ const double pixel_factor_x = 2.0 / (double)width_d;
+__device__ const double pixel_factor_y = 2.0 / (double)height_d;
 
 // Sphere properties
 typedef struct Sphere
@@ -55,7 +57,6 @@ typedef struct Camera
     double3 direction; // Pointing to
 } Camera;
 
-
 /*-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------------Helper functions------------------------------------------------------------------------------------------------------
@@ -80,7 +81,6 @@ double3 scalar_mul(double3 vector, double scalar)
     return result;
 }
 
-
 // Helper function with subtraction for double3
 double3 subtraction(double3 a, double3 b)
 {
@@ -90,11 +90,9 @@ double3 subtraction(double3 a, double3 b)
 
 double3 addition(double3 a, double3 b)
 {
-    double3 result;
-    result = {a.x + b.x, a.y + b.y, a.z + b.z};
+    double3 result = {a.x + b.x, a.y + b.y, a.z + b.z};
     return result;
 }
-
 
 // Helper function for clip
 int clip(double3 vector)
@@ -120,12 +118,11 @@ double3 normalize(double3 vector)
     // Declare the variables used
     double inverse_sqrt = dot(vector, vector);
     double x2 = inverse_sqrt * 0.5;
-    int64_t i = *(int64_t *) &inverse_sqrt;
+    int64_t i = *(int64_t *)&inverse_sqrt;
     // The magic number is for doubles is from https://cs.uwaterloo.ca/~m32rober/rsqrt.pdf
     i = 0x5fe6eb50c7b537a9 - (i >> 1);
-    inverse_sqrt = *(double *) &i;
-    inverse_sqrt = inverse_sqrt * (1.5 - (x2 * inverse_sqrt * inverse_sqrt));   // 1st iteration
-    //      y  = y * ( 1.5 - ( x2 * y * y ) );   // 2nd iteration, this can be removed
+    inverse_sqrt = *(double *)&i;
+    inverse_sqrt = inverse_sqrt * (1.5 - (x2 * inverse_sqrt * inverse_sqrt)); // 1st iteration newton rhaps approximation
 
     double3 result;
     result.x = vector.x * inverse_sqrt;
@@ -135,38 +132,33 @@ double3 normalize(double3 vector)
     return result;
 }
 
-
 /*-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------GPU---------------------------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-
-__device__ 
-double3 add_gpu(double3 a, double3 b)
+__device__ double3 add_gpu(double3 a, double3 b)
 {
     double3 result;
     result = {a.x + b.x, a.y + b.y, a.z + b.z};
     return result;
 }
 
-__device__
-double dot_gpu(double3 a, double3 b)
+__device__ double dot_gpu(double3 a, double3 b)
 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-__device__
-double3 normalize_gpu(double3 vector)
+__device__ double3 normalize_gpu(double3 vector)
 {
     //Based on https://stackoverflow.com/questions/11644441/fast-inverse-square-root-on-x64/11644533
     // Declare the variables used
     double inverse_sqrt = dot_gpu(vector, vector);
     double x2 = inverse_sqrt * 0.5;
-    int64_t i = *(int64_t *) &inverse_sqrt;
+    int64_t i = *(int64_t *)&inverse_sqrt;
     // The magic number is for doubles is from https://cs.uwaterloo.ca/~m32rober/rsqrt.pdf
     i = 0x5fe6eb50c7b537a9 - (i >> 1);
-    inverse_sqrt = *(double *) &i;
-    inverse_sqrt = inverse_sqrt * (1.5 - (x2 * inverse_sqrt * inverse_sqrt));   // 1st iteration
+    inverse_sqrt = *(double *)&i;
+    inverse_sqrt = inverse_sqrt * (1.5 - (x2 * inverse_sqrt * inverse_sqrt)); // 1st iteration
     //      y  = y * ( 1.5 - ( x2 * y * y ) );   // 2nd iteration, this can be removed
 
     double3 result;
@@ -177,24 +169,20 @@ double3 normalize_gpu(double3 vector)
     return result;
 }
 
-
-__device__
-double3 sub_gpu(double3 a, double3 b)
+__device__ double3 sub_gpu(double3 a, double3 b)
 {
     double3 result = {a.x - b.x, a.y - b.y, a.z - b.z};
     return result;
 }
 
-__device__
-double3 scalar_mul_gpu(double3 vector, double scalar)
+__device__ double3 scalar_mul_gpu(double3 vector, double scalar)
 {
     double3 result;
     result = {vector.x * scalar, vector.y * scalar, vector.z * scalar};
     return result;
 }
 
-__device__
-int clip_gpu(double3 vector)
+__device__ int clip_gpu(double3 vector)
 {
     int result = 0x0;
     vector.x = vector.x > 1 ? 255 : vector.x < 0 ? 0
@@ -210,7 +198,6 @@ int clip_gpu(double3 vector)
     return result;
 }
 
-
 /*-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------------Basic Version---------------------------------------------------------------------------------------------------------
@@ -221,19 +208,17 @@ int clip_gpu(double3 vector)
 -------------------------------------------------------------------------------------------------------------CPU---------------------------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-
 double intersect_sphere(Camera *camera, Sphere *sphere, double3 direction)
 {
-    // printf("checking for intersections\n");
     // Return the distance between the origin (camera) and the intersection of the ray with the sphere, or inf if there are no intersections.
     // camera.origin and sphere.position are points in a 3 dimensional space, direction is a normalized vector and sphere.radius is a scalar.
-    double a = (double) dot(direction, direction);
+    double a = (double)dot(direction, direction);
     double3 OS = subtraction(camera->origin, sphere->position);
-    double b = (double) 2 * dot(direction, OS);
-    double c = (double) dot(OS, OS) - (sphere->radius * sphere->radius);
-    double disc = (double) (b * b) - (4 * a * c);
+    double b = (double)2 * dot(direction, OS);
+    double c = (double)dot(OS, OS) - (sphere->radius * sphere->radius);
+    double disc = (double)(b * b) - (4 * a * c);
 
-    if(disc > 0)
+    if (disc > 0)
     {
         double dist_sqrt = sqrt(disc);
         double q = b < 0 ? (-b - dist_sqrt) / 2.0 : (-b + dist_sqrt) / 2.0;
@@ -243,19 +228,17 @@ double intersect_sphere(Camera *camera, Sphere *sphere, double3 direction)
         double min = fmin(t0, t1);
         double max = fmax(t0, t1);
 
-        if(max >= 0)
+        if (max >= 0)
         {
-            return (min < 0) ? t1 : t0;
-        } 
+            return (min < 0) ? max : min;
+        }
     }
 
     return INFINITY;
-    
 }
 
 double3 trace_ray(Camera *camera, Sphere *sphere, Light *light, double3 direction)
 {
-    // printf("Tracing the ray\n");
     // Find the first point of intersection in the scene
     double t = intersect_sphere(camera, sphere, direction);
     // No infinty?
@@ -275,7 +258,7 @@ double3 trace_ray(Camera *camera, Sphere *sphere, Light *light, double3 directio
 
     // Ambient light
     double3 col = {light->ambient, light->ambient, light->ambient};
-    
+
     // Lambert shading
     double saved_value = dot(N, toL);
     saved_value = fmax(saved_value, 0.0);
@@ -302,7 +285,16 @@ void run(Camera *camera, Sphere *sphere, Light *light, int *img)
     double y = (double)-1;
     camera->direction.x = x;
     camera->direction.y = y;
-    // printf("Done with the set up\n");
+
+    //Function pointers
+    double3 (*trace)(Camera *, Sphere *, Light *, double3);
+    trace = &trace_ray;
+    double3 (*norm)(double3);
+    norm = &normalize;
+    double3 (*sub)(double3, double3);
+    sub = &subtraction;
+    int (*clips)(double3);
+    clips = &clip;
 
     // Loop through all pixels
     for (int i = 0; i < width; ++i)
@@ -311,33 +303,24 @@ void run(Camera *camera, Sphere *sphere, Light *light, int *img)
         {
             // Position of the pixel
             // Direction of the ray going through the optical center
-            direction = normalize(subtraction(camera->direction, camera->origin));
+            direction = norm(sub(camera->direction, camera->origin));
 
             // Launch the ray and get the color of the pixel
-            color = trace_ray(camera, sphere, light, direction);
+            color = trace(camera, sphere, light, direction);
             camera->direction.y += add_height;
 
-            if (color.x == NULL)
-            {
-                continue;
-            }
-            img[i * width + j] = clip(color);
+            img[i * width + j] = clips(color);
         }
-       camera->direction.x += add_width;
-       camera->direction.y = (double) -1;
+        camera->direction.x += add_width;
+        camera->direction.y = (double)-1;
     }
-    // printf("Done with the for loop");
 }
-
-
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------GPU---------------------------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-
-__device__
-double intersect_sphere_gpu(Camera *camera, Sphere *sphere, double3 direction)
+__device__ double intersect_sphere_gpu(Camera *camera, Sphere *sphere, double3 direction)
 {
     // Return the distance between the origin (camera) and the intersection of the ray with the sphere, or inf if there are no intersections.
     // camera.origin and sphere.position are points in a 3 dimensional space, direction is a normalized vector and sphere.radius is a scalar.
@@ -349,7 +332,7 @@ double intersect_sphere_gpu(Camera *camera, Sphere *sphere, double3 direction)
 
     double disc = (b * b) - (4 * a * c);
 
-    if(disc > 0)
+    if (disc > 0)
     {
         double dist_sqrt = sqrt(disc);
         double q = b < 0 ? (-b - dist_sqrt) / 2.0 : (-b + dist_sqrt) / 2.0;
@@ -358,21 +341,20 @@ double intersect_sphere_gpu(Camera *camera, Sphere *sphere, double3 direction)
         double tmin = min(t0, t1);
         double tmax = max(t0, t1);
 
-        if(tmax >= 0)
+        if (tmax >= 0)
         {
-            return t0 < 0 ? t1 : t0;
+            return tmin < 0 ? tmin : tmin;
         }
-    } 
+    }
     return INFINITY;
 }
 
-__device__
-double3 trace_ray_gpu(Camera *camera, Sphere *sphere, Light *light, double3 direction)
+__device__ double3 trace_ray_gpu(Camera *camera, Sphere *sphere, Light *light, double3 direction)
 {
     //Find the firsst point of intersection with the scene.
     double t = intersect_sphere_gpu(camera, sphere, direction);
     //Check if there is an intersection
-        if(t == INFINITY)
+    if (t == INFINITY)
     {
         return {NULL, NULL, NULL};
     }
@@ -397,17 +379,14 @@ double3 trace_ray_gpu(Camera *camera, Sphere *sphere, Light *light, double3 dire
     saved_value = sphere->specular_c * pow(max(saved_value2, 0.0), sphere->specular_k);
     col = add_gpu(col, scalar_mul_gpu(light->color, saved_value));
 
-    //Check if there was an intersection, done here as to maximize performance of the function (making sure that the warps doesn't have too many different branches)
-
     return col;
 }
 
-__global__
-void run_gpu(Camera *camera, Sphere *sphere, Light *light, int *img)
+__global__ void run_gpu(Camera *camera, Sphere *sphere, Light *light, int *img)
 {
-    int index = blockIdx.x *blockDim.x + threadIdx.x;
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if(index > height_d * width_d)
+    if (index > height_d * width_d)
     {
         return;
     }
@@ -415,8 +394,8 @@ void run_gpu(Camera *camera, Sphere *sphere, Light *light, int *img)
     int i = index % width_d;
     int j = index / width_d;
 
-    double x = -1.0 + (double) i * pixel_factor_x;
-    double y = -1.0 + (double) j * pixel_factor_y;
+    double x = -1.0 + (double)i * pixel_factor_x;
+    double y = -1.0 + (double)j * pixel_factor_y;
 
     double3 direction = {x - camera->origin.x, y - camera->origin.y, camera->direction.z - camera->origin.z};
     direction = normalize_gpu(direction);
@@ -424,11 +403,37 @@ void run_gpu(Camera *camera, Sphere *sphere, Light *light, int *img)
     double3 col = trace_ray_gpu(camera, sphere, light, direction);
 
     img[index] = clip_gpu(col);
-
 }
 
+/*-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------Verification----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
+void verify(int *img, int *img_d)
+{
+    int mismatch = 0;
+    int epsilon = 1;
+    for (int i = 0; i < width; ++i)
+    {
+        for (int j = 0; j < height; ++j)
+        {
+            if (abs(img[i * width + j] - img_d[i * width + j]) > epsilon)
+            {
+                mismatch = 1;
+                printf("The GPU and CPU versions do not match at row %d, column %d\n", i, j);
+            }
+        }
+    }
 
+    if (mismatch == 1)
+    {
+        printf("There is something wrong in the program and the versions do not match\n");
+    }
+    else
+    {
+        printf("The program functions correctly!\n");
+    }
+}
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------BMP file writing--------------------------------------------------------------------------------------------------
@@ -554,30 +559,7 @@ void generate_BMP(int *img, FILE *image_file)
 ----------------------------------------------------------------------------------------------Initializing and setting up the running of program-------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-
 void init(Sphere *sphere, Light *light, Camera *camera)
-{
-    printf("Initializing\n");
-    // Set sphere properties
-    sphere->position = {0.0, 0.0, 1.0};
-    sphere->radius = 1.5;
-    sphere->color = {0.0, 0.0, 1.0};
-    sphere->diffuse = 1.0;
-    sphere->specular_c = 1.0;
-    sphere->specular_k = 50.0;
-
-    // Set light properties
-    light->L = {5.0, 5.0, -10.0};
-    light->color = {1.0, 1.0, 1.0};
-    light->ambient = 0.05;
-
-    // Set camera properties
-    camera->origin = {0.0, 0.0, -1.0};
-    camera->direction = {0.0, 0.0, 0.0};
-}
-
-__device__
-void init_d(Sphere *sphere, Light *light, Camera *camera)
 {
     printf("Initializing\n");
     // Set sphere properties
@@ -602,21 +584,15 @@ int main(int argc, char *argv[])
 {
     //General set up
     Timer_t timer = {0};
+    Timer_t total = {0};
     Timer_t timer_d = {0};
+    Timer_t total_d = {0};
+    tstart(&total);
     Sphere *sphere = (Sphere *)malloc(sizeof(Sphere));
     Light *light = (Light *)malloc(sizeof(Light));
     Camera *camera = (Camera *)malloc(sizeof(Camera));
     init(sphere, light, camera);
-    // printf("size of double3: %d\t size of sphere: %d\t size of light: %d\t size of camera: %d\n", sizeof(double3), sizeof(Sphere), sizeof(Light), sizeof(Camera));
-    // printf("Size of Sphere *: %d\t Size of Light *: %d\t Size of Camera *: %d\n", sizeof(Sphere *), sizeof(Light *), sizeof(Camera *));
 
-    // printf("Sphere memory address: %u\tposition: %u\tradius: %u\tcolor: %u\tdiffuse: %u\tspecular_c: %u\tspecular_k: %u\n"
-    //         "Light memory address: %u\tL: %u\tcolor: %u\tambient: %u\n"
-    //         "Camera memory address: %u\torigin: %u\tdirection: %u\n", 
-    //         sphere, &sphere->position, &sphere->radius, &sphere->color, &sphere->diffuse, &sphere->specular_c, &sphere->specular_k,
-    //         light, &light->L, &light->color, &light->ambient,
-    //         camera, &camera->origin, &camera->direction);
-    
     //CPU set up
     FILE *CPU = fopen("cpu_img.bmp", "wb+");
     int *img;
@@ -624,7 +600,9 @@ int main(int argc, char *argv[])
     tstart(&timer);
     run(camera, sphere, light, img);
     tend(&timer);
-    printf("The execution on the CPU took %f seconds.\n", telapsed(&timer));
+    tend(&total);
+    printf("The execution on the CPU took %f milliseconds.\n", telapsed(&timer));
+    printf("The total time (excluding writing to a BMP file) to execute on the cpu is: %f milliseconds.\n", telapsed(&total));
     generate_BMP(img, CPU);
     fclose(CPU);
     printf("Done with CPU image\n");
@@ -633,12 +611,12 @@ int main(int argc, char *argv[])
 
     FILE *GPU = fopen("gpu_img.bmp", "wb+");
 
+    tstart(&total_d);
     Sphere *sphere_d;
     Light *light_d;
     Camera *camera_d;
     int *img_d;
-    int *cuda_img = (int *) malloc(sizeof(int) * height * width);
-
+    int *cuda_img = (int *)malloc(sizeof(int) * height * width);
     cudaMalloc(&sphere_d, sizeof(Sphere));
     cudaMalloc(&light_d, sizeof(Light));
     cudaMalloc(&camera_d, sizeof(Camera));
@@ -648,19 +626,21 @@ int main(int argc, char *argv[])
     cudaMemcpy(sphere_d, sphere, sizeof(Sphere), cudaMemcpyHostToDevice);
     cudaMemcpy(light_d, light, sizeof(Light), cudaMemcpyHostToDevice);
     cudaMemcpy(camera_d, camera, sizeof(Camera), cudaMemcpyHostToDevice);
-
-    int TPB = 32;
+    int TPB = 256;
     int BLOCKS = (height * width + TPB - 1) / TPB;
 
     tstart(&timer_d);
     run_gpu<<<BLOCKS, TPB>>>(camera_d, sphere_d, light_d, img_d);
     cudaDeviceSynchronize();
     tend(&timer_d);
-    printf("The execution on the GPU took %f seconds.\n", telapsed(&timer_d));
+    tend(&total_d);
 
     HANDLE_ERROR(cudaMemcpy(cuda_img, img_d, sizeof(int) * width_d * height_d, cudaMemcpyDeviceToHost));
-
+    printf("The execution on the GPU took %f milliseconds.\n", telapsed(&timer_d));
+    printf("The total time (excluding writing to a BMP file) to execute on the GPU is: %f milliseconds.\n", telapsed(&total_d));
     generate_BMP(cuda_img, GPU);
+
+    verify(img, cuda_img);
 
     cudaFree(sphere_d);
     cudaFree(light_d);
